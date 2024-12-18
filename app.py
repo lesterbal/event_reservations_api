@@ -141,7 +141,6 @@ def login_post():
 # SECTION: CREATE AN USER ACCOUNT
 @app.route("/register", methods=["GET", "POST"])
 def register():
-
     if request.method == "GET":
         # curl -X GET http://localhost:5000/users
         return jsonify({"message": "You need to query it :P"}), 200
@@ -176,25 +175,25 @@ def register():
         finally:
             cur.close()
 
-    @app.route("/users", methods=["GET", "POST"])
-    def users(user_id=None):
-        table_name = "users"
-        cur = mysql.connection.cursor()
-        if request.method == "GET":
-            cur.execute(f"SELECT * FROM {table_name}")
-            entries = cur.fetchall()
 
-            users = []
-            for entry in entries:
-                user = {
-                    'user_id': entry[0],
-                    'username': entry[1],
-                    'passwd': entry[2],
-                    'token_id': entry[3],
-                    'role_id': entry[4]
-                }
-                users.append(user)
-            return jsonify(users), 200
+@app.route("/users", methods=["GET", "POST"])
+def users(user_id=None):
+    table_name = "users"
+    cur = mysql.connection.cursor()
+    if request.method == "GET":
+        cur.execute(f"SELECT * FROM {table_name}")
+        entries = cur.fetchall()
+        users = []
+        for entry in entries:
+            user = {
+                'user_id': entry[0],
+                'username': entry[1],
+                'passwd': entry[2],
+                'token_id': entry[3],
+                'role_id': entry[4]
+            }
+            users.append(user)
+        return jsonify(users), 200
 
 @app.route("/customers", methods=["GET", "POST"])
 @app.route("/customers/<int:customer_id>", methods=["GET", "PUT", "DELETE"])
