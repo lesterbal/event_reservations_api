@@ -21,9 +21,16 @@ auth = HTTPBasicAuth()
 def token_required(f):
     @wraps(f)
     def wrapper(*args, **kwargs):
-        token = request.headers.get("Authorization").replace("Bearer ", "")
-        if not token:
+        auth_header = request.headers.get("Authorization")
+        
+        if not auth_header:
             return jsonify({"error": "Token is missing"}), 401
+        
+        if not auth_header.startswith("Bearer "):
+            return jsonify({"error": "Invalid token format"}), 401
+        
+        token = auth_header.replace("Bearer ", "")
+        
         try:
             decoded_token = jwt.decode(token, app.config["SECRET_KEY"], algorithms=["HS256"])
             request.username = decoded_token["username"]
@@ -31,10 +38,10 @@ def token_required(f):
             return jsonify({"error": "Token has expired!, login again!"}), 401
         except jwt.InvalidTokenError:
             return jsonify({"error": "Invalid token"}), 401
-
+        
         return f(*args, **kwargs)
     return wrapper
-
+    
 @app.errorhandler(404)
 def page_not_found(e):
     return "NOT FOUND :P", 404
@@ -279,6 +286,97 @@ def customers(customer_id=None):
     else:
         return jsonify({"success": False, "message": "Method not allowed"}), 405
 
+
+# Event
+@app.route("/events", methods=["GET", "POST"])
+@app.route("/events/<int:event_id>", methods=["GET", "PUT", "DELETE"])
+def events(event_id=None):
+    table_name = "events"
+    cur = mysql.connection.cursor()
+
+    # Helper function
+    def get_event(event_id):
+        cur.execute(f"SELECT * FROM {table_name} WHERE event_id = %s", (event_id,))
+        event = cur.fetchone()
+        if not event:
+            return None
+        return {
+            "event_id": event[0],
+            "event_type": event[1],
+            "venue_name": event[2],
+            "event_name": event[3],
+            "event_start_date": event[4],
+            "event_end_date": event[5]
+        }
+
+    # GET all events or specific event
+    if request.method == "GET":
+        if event_id:
+            event = get_event(event_id)
+            if not event:
+                return jsonify({"success": False, "message": "Event not found"}), 404
+            return jsonify(event)
+        else:
+            cur.execute(f"SELECT * FROM {table_name}")
+            events = cur.fetchall()
+            event_list = [get_event(event[0]) for event in events]
+            return jsonify(event_list)
+
+    # CREATE new event
+    @token_required
+    def create_event():
+        if request.method == "POST":
+            data = request.get_json()
+            try:
+                cur.execute(f"INSERT INTO {table_name} (event_type, venue_name, event_name, event_start_date, event_end_date) VALUES (%s, %s, %s, %s, %s)",
+                            (data["event_type"], data["venue_name"], data["event_name"], data["event_start_date"], data["event_end_date"]))
+                mysql.connection.commit()
+                return jsonify({"success": True, "message": "Event created successfully"})
+            except Exception as e:
+                mysql.connection.rollback()
+                return jsonify({"success": False, "message": "Missing your query"})
+
+    # UPDATE existing event
+    @token_required
+    def update_event():
+        if request.method == "PUT":
+            data = request.get_json()
+            event = get_event(event_id)
+            if not event:
+                return jsonify({"success": False, "message": "Event not found"}), 404
+            try:
+                cur.execute(f"UPDATE {table_name} SET event_type = %s, venue_name = %s, event_name = %s, event_start_date = %s, event_end_date = %s WHERE event_id = %s",
+                            (data["event_type"], data["venue_name"], data["event_name"], data["event_start_date"], data["event_end_date"], event_id))
+                mysql.connection.commit()
+                return jsonify({"success": True, "message": "Event updated successfully"})
+            except Exception as e:
+                mysql.connection.rollback()
+                return jsonify({"success": False, "message": str(e)})
+
+    # DELETE event
+    @token_required
+    def delete_event():
+        if request.method == "DELETE":
+            event = get_event(event_id)
+            if not event:
+                return jsonify({"success": False, "message": "Event not found"}), 404
+            try:
+                cur.execute(f"DELETE FROM {table_name} WHERE event_id = %s", (event_id,))
+                mysql.connection.commit()
+                return jsonify({"success": True, "message": "Event deleted successfully"})
+            except Exception as e:
+                mysql.connection.rollback()
+                return jsonify({"success": False, "message": str(e)})
+
+    # Call functions
+    if request.method == "POST":
+        return create_event()
+    elif request.method == "PUT":
+        return update_event()
+    elif request.method == "DELETE":
+        return delete_event()
+    else:
+        return jsonify({"success": False, "message": "Method not allowed"}), 405
 
 
 if __name__ == "__main__":
