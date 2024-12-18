@@ -379,6 +379,98 @@ def events(event_id=None):
         return jsonify({"success": False, "message": "Method not allowed"}), 405
 
 
+# CUSTOMER BOOKINGS
+@app.route("/customer_bookings", methods=["GET", "POST"])
+@app.route("/customer_bookings/<int:booking_id>", methods=["GET", "PUT", "DELETE"])
+def customer_bookings(booking_id=None):
+    table_name = "customer_bookings"
+    cur = mysql.connection.cursor()
+
+    # Helper function
+    def get_booking(booking_id):
+        cur.execute(f"SELECT * FROM {table_name} WHERE booking_id = %s", (booking_id,))
+        booking = cur.fetchone()
+        if not booking:
+            return None
+        return {
+            "booking_id": booking[0],
+            "customer_id": booking[1],
+            "event_id": booking[2],
+            "event_datetime": booking[3],
+            "booking_seat_number": booking[4]
+        }
+
+    # GET all bookings or specific booking
+    if request.method == "GET":
+        if booking_id:
+            booking = get_booking(booking_id)
+            if not booking:
+                return jsonify({"success": False, "message": "Booking not found"}), 404
+            return jsonify(booking)
+        else:
+            cur.execute(f"SELECT * FROM {table_name}")
+            bookings = cur.fetchall()
+            booking_list = [get_booking(booking[0]) for booking in bookings]
+            return jsonify(booking_list)
+
+    # CREATE new booking
+    @token_required
+    def create_booking():
+        if request.method == "POST":
+            data = request.get_json()
+            try:
+                cur.execute(f"INSERT INTO {table_name} (customer_id, event_id, event_datetime, booking_seat_number) VALUES (%s, %s, %s, %s)",
+                            (data["customer_id"], data["event_id"], data["event_datetime"], data["booking_seat_number"]))
+                mysql.connection.commit()
+                return jsonify({"success": True, "message": "Booking created successfully"})
+            except Exception as e:
+                mysql.connection.rollback()
+                return jsonify({
+                    "success": False,
+                    "message": str(e)}), 500
+
+    # UPDATE existing booking
+    @token_required
+    def update_booking():
+        if request.method == "PUT":
+            data = request.get_json()
+            booking = get_booking(booking_id)
+            if not booking:
+                return jsonify({"success": False, "message": "Booking not found"}), 404
+            try:
+                cur.execute(f"UPDATE {table_name} SET customer_id = %s, event_id = %s, event_datetime = %s, booking_seat_number = %s WHERE booking_id = %s",
+                            (data["customer_id"], data["event_id"], data["event_datetime"], data["booking_seat_number"], booking_id))
+                mysql.connection.commit()
+                return jsonify({"success": True, "message": "Booking updated successfully"})
+            except Exception as e:
+                mysql.connection.rollback()
+                return jsonify({"success": False, "message": str(e)})
+
+    # DELETE booking
+    @token_required
+    def delete_booking():
+        if request.method == "DELETE":
+            booking = get_booking(booking_id)
+            if not booking:
+                return jsonify({"success": False, "message": "Booking not found"}), 404
+            try:
+                cur.execute(f"DELETE FROM {table_name} WHERE booking_id = %s", (booking_id,))
+                mysql.connection.commit()
+                return jsonify({"success": True, "message": "Booking deleted successfully"})
+            except Exception as e:
+                mysql.connection.rollback()
+                return jsonify({"success": False, "message": str(e)})
+
+    # Call functions
+    if request.method == "POST":
+        return create_booking()
+    elif request.method == "PUT":
+        return update_booking()
+    elif request.method == "DELETE":
+        return delete_booking()
+    else:
+        return jsonify({"success": False, "message": "Method not allowed"}), 405
+        
 if __name__ == "__main__":
     app.run(debug=True)
 
