@@ -165,6 +165,108 @@ def register():
                 users.append(user)
             return jsonify(users), 200
 
+@app.route("/customers", methods=["GET", "POST", "PUT", "DELETE"])
+def customers(get_customer_id=None):
+    table_name = "customers"
+
+    cur = mysql.connection.cursor()
+
+    # GET all customers or specific customer
+    if request.method == "GET":
+        
+        # Fetch customer
+        if customer_id:
+            cur.execute(f"SELECT * FROM {table_name} WHERE customer_id = %s", (customer_id,))
+            customer = cur.fetchone()
+            if not customer:
+                return jsonify({"success": False, "message": "Customer not found"}), 404
+                customer_data = {
+                    "customer_id": customer[0],
+                    "payment_method": customer[1],
+                    "customer_name": customer[2],
+                    "customer_phone": customer[3],
+                    "customer_email": customer[4],
+                    "customer_address": customer[5]
+                }
+                return jsonify(customer_data), 200
+            else:
+                cur.execute(f"SELECT * FROM {table_name}")
+                customers = cur.fetchall()
+                customer_list = []
+                for customer in customers:
+                    customer_list.append({
+                        "customer_id": customer[0],
+                        "payment_method": customer[1],
+                        "customer_name": customer[2],
+                        "customer_phone": customer[3],
+                        "customer_email": customer[4],
+                        "customer_address": customer[5]
+                    })
+                return jsonify(customer_list), 200
+
+    # CREATE new customer
+    elif request.method == "POST":
+        data = request.get_json()
+        payment_method = data.get("payment_method")
+        customer_name = data.get("customer_name")
+        customer_phone = data.get("customer_phone")
+        customer_email = data.get("customer_email")
+        customer_address = data.get("customer_address")
+
+        if not all([payment_method, customer_name, customer_phone, customer_email, customer_address]):
+            return jsonify({"success": False, "message": "All fields are required"}), 400
+
+        try:
+            cur.execute(f"INSERT INTO {table_name} (payment_method, customer_name, customer_phone, customer_email, customer_address) VALUES (%s, %s, %s, %s, %s)",
+                        (payment_method, customer_name, customer_phone, customer_email, customer_address))
+            mysql.connection.commit()
+            return jsonify({"success": True, "message": "Customer created successfully"}), 201
+        except Exception as e:
+            mysql.connection.rollback()
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    # UPDATE existing customer
+    elif request.method == "PUT":
+        data = request.get_json()
+        payment_method = data.get("payment_method")
+        customer_name = data.get("customer_name")
+        customer_phone = data.get("customer_phone")
+        customer_email = data.get("customer_email")
+        customer_address = data.get("customer_address")
+
+        if not all([payment_method, customer_name, customer_phone, customer_email, customer_address]):
+            return jsonify({"success": False, "message": "All fields are required"}), 400
+
+        cur.execute(f"SELECT * FROM {table_name} WHERE customer_id = %s", (customer_id,))
+        if not cur.fetchone():
+            return jsonify({"success": False, "message": "Customer not found"}), 404
+
+        try:
+            cur.execute(f"UPDATE {table_name} SET payment_method = %s, customer_name = %s, customer_phone = %s, customer_email = %s, customer_address = %s WHERE customer_id = %s",
+                        (payment_method, customer_name, customer_phone, customer_email, customer_address, customer_id))
+            mysql.connection.commit()
+            return jsonify({"success": True, "message": "Customer updated successfully"}), 200
+        except Exception as e:
+            mysql.connection.rollback()
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    # DELETE customer
+    elif request.method == "DELETE":
+        cur.execute(f"SELECT * FROM {table_name} WHERE customer_id = %s", (customer_id,))
+        if not cur.fetchone():
+            return jsonify({"success": False, "message": "Customer not found"}), 404
+
+        try:
+            cur.execute(f"DELETE FROM {table_name} WHERE customer_id = %s", (customer_id,))
+            mysql.connection.commit()
+            return jsonify({"success": True, "message": "Customer deleted successfully"}), 200
+        except Exception as e:
+            mysql.connection.rollback()
+            return jsonify({"success": False, "message": str(e)}), 500
+
+    else:
+        return jsonify({"success": False, "message": "Method not allowed"}), 405
+
 
 if __name__ == "__main__":
     app.run(debug=True)
