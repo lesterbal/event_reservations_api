@@ -101,8 +101,8 @@ def gen_event():
         "event_type" : random.choice(evenet_types_sample),
         "venue_id" : 3,
         "event_name" : fake.catch_phrase(),
-        "event_start_date" : fake.date_time_this_year(),
-        "event_end_date" : fake.date_time_this_year(),
+        "event_start_date" : fake.date_time_this_year().strftime("%Y-%m-%d"),
+        "event_end_date" : fake.date_time_this_year().strftime("%Y-%m-%d"),
     }
     return data_events
 
@@ -239,19 +239,167 @@ def test_post_customers_success():
         'username': username,
         'password': password
     }, headers={'Content-Type': 'application/json'})
-    
     # assert response.status_code == 200
     token = json.loads(response.get_data(as_text=True)).get('token')
-    
     # Use the token to make an authorized request
     response = client.post('/customers', json=gen_customer(), headers={
         'Authorization': f'Bearer {token}',
         'Content-Type': 'application/json'
     })
-    
     if response.status_code != 201:
         print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
     assert response.status_code == 201
+
+def test_put_customers_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    
+    # Retrieve the last customer ID
+    response = client.get('/customers', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    customers = json.loads(response.get_data(as_text=True))
+    LAST_CUSTOMER_ID = customers[-1]['customer_id']
+    
+    # Update the customer
+    response = client.put(f'/customers/{LAST_CUSTOMER_ID}', json=gen_customer(), headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 200
+
+def test_delete_customers_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    
+    # Retrieve the last customer ID
+    response = client.get('/customers', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    customers = json.loads(response.get_data(as_text=True))
+    LAST_CUSTOMER_ID = customers[-1]['customer_id']
+    
+    # Delete the customer
+    response = client.delete(f'/customers/{LAST_CUSTOMER_ID}', headers={
+        'Authorization': f'Bearer {token}'
+    })
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 200
+
+# EVENTS
+def test_get_events():
+    client = app.test_client()
+    response = client.get('/events')
+    assert response.status_code == 200
+    assert len(response.json) >= 0
+
+def test_get_event_id_success():
+    client = app.test_client()
+    response = client.get(f'/events/{LAST_EVENT_ID}')
+    assert response.status_code == 200
+    assert len(response.json) >= 0
+
+def test_event_id_not_found():
+    client = app.test_client()
+    response = client.get(f'/events/9999')
+    assert response.status_code == 404
+
+def test_post_events_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    # assert response.status_code == 200
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    # Use the token to make an authorized request
+    response = client.post('/events', json=gen_event(), headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    if response.status_code != 201:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 201
+
+def test_put_events_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    
+    # Retrieve the last event ID
+    response = client.get('/events', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    events = json.loads(response.get_data(as_text=True))
+    LAST_EVENT_ID = events[-1]['event_id']
+    
+    # Update the event
+    response = client.put(f'/events/{LAST_EVENT_ID}', json=gen_event(), headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 200
+
+def test_delete_events_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    
+    # Retrieve the last event ID
+    response = client.get('/events', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    events = json.loads(response.get_data(as_text=True))
+    LAST_EVENT_ID = events[-1]['event_id']
+    
+    # Delete the event
+    response = client.delete(f'/events/{LAST_EVENT_ID}', headers={
+        'Authorization': f'Bearer {token}'
+    })
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response
+
 
 # def test_post_customers_fail():
 #     client = app.test_client()
