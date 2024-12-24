@@ -65,10 +65,10 @@ def refresh_customer_bookings():
     except IndexError:
         print("No customer bookings found")
         return {
-            "booking_id" : 192,
-            "customer_id" : 3,
-            "event_id" : 3,
-            "" : "2024-12-31 23:59:59",
+            "customer_id" : LAST_CUSTOMER_ID,
+            "event_id" : LAST_EVENT_ID,
+            "event_datetime" : fake.date_time_this_year().strftime("%Y-%m-%d %H:%M:%S"),
+            "booking_made_date" : fake.date_time_this_year().strftime("%Y-%m-%d %H:%M:%S"),
 
         }
 def refresh_seat_bookings():
@@ -128,8 +128,9 @@ def gen_venue():
 
 def gen_customer_booking():
     data_customer_bookings = {
-        "customer_id" : 3,
-        "event_id" : 3,
+        "customer_id" : LAST_CUSTOMER_ID,
+        "event_id" : LAST_EVENT_ID,
+        "event_datetime" : fake.date_time_this_year().strftime("%Y-%m-%d %H:%M:%S"),
         "event_date_time" : datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
     return data_customer_bookings
@@ -137,10 +138,9 @@ def gen_customer_booking():
 def gen_seat_booking():
     data_seat_bookings = {
         "booking_id" : LAST_CUSTOMER_BOOKING_ID,
-        "customer_id" : LAST_CUSTOMER_ID,
-        "event_id" : LAST_EVENT_ID,
-        "event_datetime" : fake.date_time_this_year(),
-        "booking_made_date" : datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "seat_booking_datetime" : datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "venue_row_number" : fake.random_int(min=1, max=100, step=1),
+        "seat_number" : fake.random_int(min=1, max=50, step=1),
     }
     return data_seat_bookings
 
@@ -493,6 +493,193 @@ def test_delete_events_success():
     if response.status_code != 200:
         print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
     assert response
+
+# CUSTOMER_BOOKINGS
+def test_get_customer_bookings():
+    client = app.test_client()
+    response = client.get('/customer_bookings')
+    assert response.status_code == 200
+    assert len(response.json) >= 0
+
+def test_get_customer_booking_id_success():
+    client = app.test_client()
+    response = client.get(f'/customer_bookings/{LAST_CUSTOMER_BOOKING_ID}')
+    assert response.status_code == 200
+    assert len(response.json) >= 0
+
+def test_customer_booking_id_not_found():
+    client = app.test_client()
+    response = client.get(f'/customer_bookings/9999')
+    assert response.status_code == 404
+
+def test_post_customer_bookings_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    # assert response.status_code == 200
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    # Use the token to make an authorized request
+    response = client.post('/customer_bookings', json=gen_customer_booking(), headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    if response.status_code != 201:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 201
+
+def test_put_customer_bookings_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    
+    # Retrieve the last customer booking ID
+    response = client.get('/customer_bookings', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    customer_bookings = json.loads(response.get_data(as_text=True))
+    LAST_CUSTOMER_BOOKING_ID = customer_bookings[-1]['booking_id']
+    
+    # Update the customer booking
+    response = client.put(f'/customer_bookings/{LAST_CUSTOMER_BOOKING_ID}', json=gen_customer_booking(), headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 200
+
+def test_delete_customer_bookings_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    
+    # Retrieve the last customer booking ID
+    response = client.get('/customer_bookings', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    customer_bookings = json.loads(response.get_data(as_text=True))
+    LAST_CUSTOMER_BOOKING_ID = customer_bookings[-1]['booking_id']
+    
+    # Delete the customer booking
+    response = client.delete(f'/customer_bookings/{LAST_CUSTOMER_BOOKING_ID}', headers={
+        'Authorization': f'Bearer {token}'
+    })
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 200
+
+# SEAT_BOOKINGS
+def test_get_seat_bookings():
+    client = app.test_client()
+    response = client.get('/seat_bookings')
+    assert response.status_code == 200
+    assert len(response.json) >= 0
+
+def test_get_seat_booking_id_success():
+    client = app.test_client()
+    response = client.get(f'/seat_bookings/{LAST_SEAT_BOOKING_ID}')
+    assert response.status_code == 200
+    assert len(response.json) >= 0
+
+def test_seat_booking_id_not_found():
+    client = app.test_client()
+    response = client.get(f'/seat_bookings/9999')
+    assert response.status_code == 404
+
+def test_post_seat_bookings_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    # assert response.status_code == 200
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    # Use the token to make an authorized request
+    response = client.post('/seat_bookings', json=gen_seat_booking(), headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    if response.status_code != 201:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 201
+
+def test_put_seat_bookings_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    
+    # Retrieve the last seat booking ID
+    response = client.get('/seat_bookings', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    seat_bookings = json.loads(response.get_data(as_text=True))
+    LAST_SEAT_BOOKING_ID = seat_bookings[-1]['seat_booking_id']
+    
+    # Update the seat booking
+    response = client.put(f'/seat_bookings/{LAST_SEAT_BOOKING_ID}', json=gen_seat_booking(), headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 200
+
+def test_delete_seat_bookings_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    
+    # Retrieve the last seat booking ID
+    response = client.get('/seat_bookings', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    
+    seat_bookings = json.loads(response.get_data(as_text=True))
+    LAST_SEAT_BOOKING_ID = seat_bookings[-1]['seat_booking_id']
+    
+    # Delete the seat booking
+    response = client.delete(f'/seat_bookings/{LAST_SEAT_BOOKING_ID}', headers={
+        'Authorization': f'Bearer {token}'
+    })
+    
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 200
+
 
 # def test_post_customers_fail():
 #     client = app.test_client()
