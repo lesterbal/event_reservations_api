@@ -307,6 +307,100 @@ def test_delete_customers_success():
         print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
     assert response.status_code == 200
 
+# VENUES
+def test_get_venues():
+    client = app.test_client()
+    response = client.get('/venues')
+    assert response.status_code == 200
+    assert len(response.json) >= 0
+
+def test_get_venue_id_success():
+    client = app.test_client()
+    response = client.get(f'/venues/{LAST_VENUE_ID}')
+    assert response.status_code == 200
+    assert len(response.json) >= 0
+
+def test_venue_id_not_found():
+    client = app.test_client()
+    response = client.get(f'/venues/9999')
+    assert response.status_code == 404
+
+def test_post_venues_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+    # assert response.status_code == 200
+    token = json.loads(response.get_data(as_text=True)).get('token')
+    # Use the token to make an authorized request
+    response = client.post('/venues', json=gen_venue(), headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+    if response.status_code != 201:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 201
+
+def test_put_venues_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+
+    token = json.loads(response.get_data(as_text=True)).get('token')
+
+    # Retrieve the last venue ID
+    response = client.get('/venues', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+
+    venues = json.loads(response.get_data(as_text=True))
+    LAST_VENUE_ID = venues[-1]['venue_id']
+
+    # Update the venue
+    response = client.put(f'/venues/{LAST_VENUE_ID}', json=gen_venue(), headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 200
+
+def test_delete_venues_success():
+    client = app.test_client()
+    # Login to get the token
+    response = client.post('/login', json={
+        'username': username,
+        'password': password
+    }, headers={'Content-Type': 'application/json'})
+
+    token = json.loads(response.get_data(as_text=True)).get('token')
+
+    # Retrieve the last venue ID
+    response = client.get('/venues', headers={
+        'Authorization': f'Bearer {token}',
+        'Content-Type': 'application/json'
+    })
+
+    venues = json.loads(response.get_data(as_text=True))
+    LAST_VENUE_ID = venues[-1]['venue_id']
+
+    # Delete the venue
+    response = client.delete(f'/venues/{LAST_VENUE_ID}', headers={
+        'Authorization': f'Bearer {token}'
+    })
+
+    if response.status_code != 200:
+        print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
+    assert response.status_code == 200
+
+
 # EVENTS
 def test_get_events():
     client = app.test_client()
@@ -399,7 +493,6 @@ def test_delete_events_success():
     if response.status_code != 200:
         print(f"Error: {response.status_code}, {response.get_data(as_text=True)}")
     assert response
-
 
 # def test_post_customers_fail():
 #     client = app.test_client()
